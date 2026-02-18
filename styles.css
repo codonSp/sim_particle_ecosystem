@@ -1,0 +1,236 @@
+:root {
+  --bg-0: #040713;
+  --bg-1: #0b1734;
+  --bg-2: #111a3f;
+  --panel: rgba(8, 13, 29, 0.78);
+  --line: rgba(165, 204, 255, 0.28);
+  --text: #f5f8ff;
+  --muted: #b7c6ea;
+  --accent: #7ee6ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(1200px 700px at 90% 8%, rgba(80, 167, 255, 0.2), transparent 60%),
+    radial-gradient(1000px 600px at 12% 92%, rgba(233, 84, 181, 0.17), transparent 60%),
+    linear-gradient(160deg, var(--bg-0), var(--bg-1) 58%, var(--bg-2));
+}
+
+.app-shell {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.hero {
+  padding: 1.2rem 0.25rem 0.75rem;
+}
+
+.kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-weight: 700;
+  font-size: 0.72rem;
+  color: #8ec2ff;
+  margin: 0 0 0.35rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(1.7rem, 3.2vw, 2.8rem);
+  line-height: 1;
+}
+
+.hero p {
+  margin: 0.55rem 0 0;
+  color: var(--muted);
+  max-width: 75ch;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 350px) 1fr;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.9rem;
+  backdrop-filter: blur(8px);
+}
+
+.panel section + section {
+  margin-top: 1rem;
+  border-top: 1px solid rgba(165, 204, 255, 0.14);
+  padding-top: 0.9rem;
+}
+
+h2 {
+  margin: 0 0 0.65rem;
+  font-size: 1rem;
+}
+
+label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+  font-size: 0.88rem;
+  color: #d8e5ff;
+}
+
+label input[type="range"] {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.param-grid {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.param-row {
+  grid-template-columns: 1fr 120px;
+  margin-bottom: 0;
+}
+
+.param-row input {
+  width: 100%;
+  border: 1px solid rgba(165, 204, 255, 0.35);
+  border-radius: 7px;
+  background: rgba(11, 23, 52, 0.55);
+  color: var(--text);
+  padding: 0.33rem 0.4rem;
+  font-family: inherit;
+}
+
+.param-row input:focus {
+  outline: 2px solid rgba(126, 230, 255, 0.5);
+  outline-offset: 0;
+}
+
+.inline-check {
+  grid-template-columns: auto 1fr;
+}
+
+.inline-check input {
+  transform: translateY(1px);
+}
+
+.buttons {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+button {
+  border: 1px solid rgba(155, 208, 255, 0.35);
+  background: linear-gradient(160deg, rgba(20, 57, 108, 0.7), rgba(15, 26, 54, 0.9));
+  color: var(--text);
+  border-radius: 9px;
+  padding: 0.55rem 0.75rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9rem;
+  transition: transform 140ms ease, border-color 140ms ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(126, 230, 255, 0.8);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+.small {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  margin-top: 0.55rem;
+}
+
+.matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.matrix-table th,
+.matrix-table td {
+  border: 1px solid rgba(165, 204, 255, 0.25);
+  padding: 0.35rem;
+}
+
+.matrix-table th {
+  color: #dbe9ff;
+  text-align: center;
+}
+
+.matrix-cell {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.matrix-cell output {
+  text-align: center;
+  color: var(--accent);
+  font-size: 0.72rem;
+}
+
+.matrix-cell input {
+  width: 100%;
+}
+
+.stage-wrap {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  height: clamp(420px, 70vh, 820px);
+  background: rgba(4, 8, 17, 0.55);
+}
+
+#stage {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#stats {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+@media (max-width: 1000px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .stage-wrap {
+    height: 62vh;
+  }
+}

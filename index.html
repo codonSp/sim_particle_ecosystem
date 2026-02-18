@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Particle Ecosystem</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero">
+        <p class="kicker">Interactive Simulation</p>
+        <h1>Particle Ecosystem</h1>
+        <p>
+          Each color follows its own attraction and repulsion rules. Positive values pull
+          particles together. Negative values push them apart.
+        </p>
+      </header>
+
+      <main class="layout">
+        <aside class="panel" aria-label="Simulation Controls">
+          <section>
+            <h2>World Controls</h2>
+            <label>
+              Particle Count
+              <span id="countValue">180</span>
+              <input id="count" type="range" min="40" max="500" value="180" step="10" />
+            </label>
+            <label>
+              Influence Radius
+              <span id="radiusValue">140</span>
+              <input id="radius" type="range" min="40" max="260" value="140" />
+            </label>
+            <label>
+              Interaction Strength
+              <span id="strengthValue">1.00</span>
+              <input id="strength" type="range" min="0" max="2" value="1" step="0.05" />
+            </label>
+            <label>
+              Drag
+              <span id="dragValue">0.940</span>
+              <input id="drag" type="range" min="0.85" max="0.995" value="0.94" step="0.001" />
+            </label>
+            <label>
+              Max Speed
+              <span id="speedValue">2.20</span>
+              <input id="speed" type="range" min="0.5" max="5" value="2.2" step="0.1" />
+            </label>
+            <label class="inline-check">
+              <input id="trails" type="checkbox" checked />
+              Trails
+            </label>
+            <label class="inline-check">
+              <input id="wrap" type="checkbox" checked />
+              Wrap Edges
+            </label>
+            <div class="buttons">
+              <button id="toggleSim">Pause</button>
+              <button id="randomizeWorld">Randomize World</button>
+              <button id="randomizeRules">Randomize Rules</button>
+            </div>
+          </section>
+
+          <section>
+            <h2>Unique Simulation Parameters</h2>
+            <p class="small">
+              Enter values to generate a repeatable simulation. Same inputs -> same ecosystem.
+            </p>
+            <div class="param-grid">
+              <label class="param-row">
+                Seed
+                <input id="seedInput" type="text" value="nebula-01" />
+              </label>
+              <label class="param-row">
+                Same-Color Cohesion
+                <input id="cohesionInput" type="number" min="-1" max="1" step="0.05" value="0.45" />
+              </label>
+              <label class="param-row">
+                Cross-Color Rivalry
+                <input id="rivalryInput" type="number" min="-1" max="1" step="0.05" value="0.5" />
+              </label>
+              <label class="param-row">
+                Chaos Field
+                <input id="chaosInput" type="number" min="0" max="2.5" step="0.05" value="0.7" />
+              </label>
+              <label class="param-row">
+                Swirl
+                <input id="swirlInput" type="number" min="-1" max="1" step="0.05" value="0.35" />
+              </label>
+              <label class="param-row">
+                Cluster Bias
+                <input id="clusterInput" type="number" min="0" max="1" step="0.05" value="0.55" />
+              </label>
+            </div>
+            <div class="buttons">
+              <button id="generateUnique">Generate from Parameters</button>
+            </div>
+            <p id="profileTag" class="small mono"></p>
+          </section>
+
+          <section>
+            <h2>Color Interaction Matrix</h2>
+            <p class="small">Rows are the active color. Columns are the target color.</p>
+            <div id="matrix"></div>
+          </section>
+
+          <section>
+            <h2>Live Stats</h2>
+            <p id="stats">Starting simulation...</p>
+          </section>
+        </aside>
+
+        <section class="stage-wrap">
+          <canvas id="stage" aria-label="Particle simulation canvas"></canvas>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
