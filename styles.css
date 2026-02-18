@@ -210,7 +210,7 @@ button:active {
   border-radius: 14px;
   overflow: hidden;
   height: clamp(420px, 70vh, 820px);
-  background: rgba(4, 8, 17, 0.55);
+  background: #030812;
 }
 
 #stage {

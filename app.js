@@ -14,6 +14,7 @@ const DEFAULT_MATRIX = [
 
 const canvas = document.getElementById("stage");
 const ctx = canvas.getContext("2d");
+const TAU = Math.PI * 2;
 
 const ui = {
   count: document.getElementById("count"),
@@ -48,6 +49,11 @@ const state = {
   matrix: DEFAULT_MATRIX.map((row) => [...row]),
   paused: false,
   tick: 0,
+  lastFrameTime: 0,
+  metrics: {
+    pairChecks: 0,
+    activePairs: 0,
+  },
   controls: {
     count: Number(ui.count.value),
     radius: Number(ui.radius.value),
@@ -72,11 +78,12 @@ const state = {
 };
 
 function fitCanvas() {
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
   const rect = canvas.getBoundingClientRect();
   canvas.width = Math.floor(rect.width * dpr);
   canvas.height = Math.floor(rect.height * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  state.lastFrameTime = 0;
 }
 
 function clamp(value, min, max) {
@@ -175,8 +182,8 @@ function buildMatrixFromProfile(profile) {
 }
 
 function spawnParticle(width, height, rng, anchors, type = Math.floor(randWith(rng, 0, SPECIES.length))) {
-  const angle = randWith(rng, 0, Math.PI * 2);
-  const speed = randWith(rng, 0.2, state.controls.speed);
+  const angle = randWith(rng, 0, TAU);
+  const speed = randWith(rng, 0.5, state.controls.speed);
   const clusterChance = state.profile.cluster;
 
   let x;
@@ -220,6 +227,8 @@ function refillParticles(rng = Math.random) {
     spawnParticle(width, height, rng, anchors),
   );
   state.tick = 0;
+  state.metrics.pairChecks = 0;
+  state.metrics.activePairs = 0;
 }
 
 function randomizeWorld() {
@@ -263,59 +272,130 @@ function wrapDelta(delta, size) {
   return delta;
 }
 
-function applyForces() {
+function applyPairForces(a, b, width, height, radius, radiusSq, scale) {
+  state.metrics.pairChecks += 1;
+
+  const dx = wrapDelta(b.x - a.x, width);
+  const dy = wrapDelta(b.y - a.y, height);
+  const distSq = dx * dx + dy * dy;
+
+  if (distSq <= 0.0001 || distSq > radiusSq) {
+    return;
+  }
+
+  state.metrics.activePairs += 1;
+
+  const dist = Math.sqrt(distSq);
+  const nx = dx / dist;
+  const ny = dy / dist;
+  const falloff = 1 - dist / radius;
+
+  const pullA = state.matrix[a.type][b.type] * falloff * scale;
+  const pullB = state.matrix[b.type][a.type] * falloff * scale;
+
+  a.vx += (nx * pullA) / a.mass;
+  a.vy += (ny * pullA) / a.mass;
+  b.vx -= (nx * pullB) / b.mass;
+  b.vy -= (ny * pullB) / b.mass;
+
+  const swirl = state.profile.swirl * falloff * scale * 0.9;
+  a.vx += (-ny * swirl) / a.mass;
+  a.vy += (nx * swirl) / a.mass;
+  b.vx -= (-ny * swirl) / b.mass;
+  b.vy -= (nx * swirl) / b.mass;
+
+  const minDist = 8;
+  if (dist < minDist) {
+    const repel = ((minDist - dist) / minDist) * 0.24;
+    a.vx -= nx * repel;
+    a.vy -= ny * repel;
+    b.vx += nx * repel;
+    b.vy += ny * repel;
+  }
+}
+
+function applyForces(dt) {
   const radius = state.controls.radius;
   const radiusSq = radius * radius;
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
+  const particles = state.particles;
 
-  for (let i = 0; i < state.particles.length; i += 1) {
-    const a = state.particles[i];
+  state.metrics.pairChecks = 0;
+  state.metrics.activePairs = 0;
 
-    for (let j = i + 1; j < state.particles.length; j += 1) {
-      const b = state.particles[j];
-      const dx = wrapDelta(b.x - a.x, width);
-      const dy = wrapDelta(b.y - a.y, height);
-      const distSq = dx * dx + dy * dy;
+  const cellSize = Math.max(24, radius);
+  const gridCols = Math.max(1, Math.ceil(width / cellSize));
+  const gridRows = Math.max(1, Math.ceil(height / cellSize));
+  const grid = new Map();
 
-      if (distSq <= 0.0001 || distSq > radiusSq) {
+  for (let i = 0; i < particles.length; i += 1) {
+    const p = particles[i];
+    const cx = clamp(Math.floor(p.x / cellSize), 0, gridCols - 1);
+    const cy = clamp(Math.floor(p.y / cellSize), 0, gridRows - 1);
+    const key = cy * gridCols + cx;
+
+    if (!grid.has(key)) {
+      grid.set(key, []);
+    }
+    grid.get(key).push(i);
+  }
+
+  const scale = 0.14 * state.controls.strength * dt;
+
+  for (const [cellKey, listA] of grid.entries()) {
+    const ax = cellKey % gridCols;
+    const ay = Math.floor(cellKey / gridCols);
+    const neighborKeys = [];
+
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        let nx = ax + dx;
+        let ny = ay + dy;
+
+        if (state.controls.wrap) {
+          nx = (nx + gridCols) % gridCols;
+          ny = (ny + gridRows) % gridRows;
+        } else if (nx < 0 || ny < 0 || nx >= gridCols || ny >= gridRows) {
+          continue;
+        }
+
+        const neighborKey = ny * gridCols + nx;
+        if (neighborKey < cellKey || neighborKeys.includes(neighborKey)) {
+          continue;
+        }
+        neighborKeys.push(neighborKey);
+      }
+    }
+
+    for (const neighborKey of neighborKeys) {
+      const listB = grid.get(neighborKey);
+      if (!listB) {
         continue;
       }
 
-      const dist = Math.sqrt(distSq);
-      const nx = dx / dist;
-      const ny = dy / dist;
-      const falloff = 1 - dist / radius;
-      const scale = 0.06 * state.controls.strength;
-
-      const pullA = state.matrix[a.type][b.type] * falloff * scale;
-      const pullB = state.matrix[b.type][a.type] * falloff * scale;
-
-      a.vx += (nx * pullA) / a.mass;
-      a.vy += (ny * pullA) / a.mass;
-      b.vx -= (nx * pullB) / b.mass;
-      b.vy -= (ny * pullB) / b.mass;
-
-      const swirl = state.profile.swirl * falloff * scale * 0.65;
-      a.vx += (-ny * swirl) / a.mass;
-      a.vy += (nx * swirl) / a.mass;
-      b.vx -= (-ny * swirl) / b.mass;
-      b.vy -= (nx * swirl) / b.mass;
-
-      // Keep particles from collapsing into singular points.
-      const minDist = 10;
-      if (dist < minDist) {
-        const repel = ((minDist - dist) / minDist) * 0.18;
-        a.vx -= nx * repel;
-        a.vy -= ny * repel;
-        b.vx += nx * repel;
-        b.vy += ny * repel;
+      if (neighborKey === cellKey) {
+        for (let i = 0; i < listA.length; i += 1) {
+          const a = particles[listA[i]];
+          for (let j = i + 1; j < listA.length; j += 1) {
+            const b = particles[listA[j]];
+            applyPairForces(a, b, width, height, radius, radiusSq, scale);
+          }
+        }
+      } else {
+        for (let i = 0; i < listA.length; i += 1) {
+          const a = particles[listA[i]];
+          for (let j = 0; j < listB.length; j += 1) {
+            const b = particles[listB[j]];
+            applyPairForces(a, b, width, height, radius, radiusSq, scale);
+          }
+        }
       }
     }
   }
 }
 
-function applyChaosField() {
+function applyChaosField(dt) {
   const chaos = state.profile.chaos;
   if (chaos <= 0.001) {
     return;
@@ -324,7 +404,7 @@ function applyChaosField() {
   const t = state.tick * 0.015;
   const phaseX = state.profile.phaseX;
   const phaseY = state.profile.phaseY;
-  const scale = chaos * 0.012;
+  const scale = chaos * 0.022 * dt;
 
   for (const p of state.particles) {
     const fx = Math.sin(p.y * 0.018 + phaseX + t) + Math.cos(p.y * 0.008 - phaseY * 0.7);
@@ -334,15 +414,15 @@ function applyChaosField() {
   }
 }
 
-function integrate() {
+function integrate(dt) {
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
-  const drag = state.controls.drag;
+  const dragFactor = Math.pow(state.controls.drag, dt);
   const maxSpeed = state.controls.speed;
 
   for (const p of state.particles) {
-    p.vx *= drag;
-    p.vy *= drag;
+    p.vx *= dragFactor;
+    p.vy *= dragFactor;
 
     const speed = Math.hypot(p.vx, p.vy);
     if (speed > maxSpeed) {
@@ -351,22 +431,24 @@ function integrate() {
       p.vy *= factor;
     }
 
-    p.x += p.vx;
-    p.y += p.vy;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
 
     if (state.controls.wrap) {
-      if (p.x < 0) p.x += width;
-      if (p.x >= width) p.x -= width;
-      if (p.y < 0) p.y += height;
-      if (p.y >= height) p.y -= height;
+      if (p.x < 0 || p.x >= width) {
+        p.x = ((p.x % width) + width) % width;
+      }
+      if (p.y < 0 || p.y >= height) {
+        p.y = ((p.y % height) + height) % height;
+      }
     } else {
       if (p.x < 0 || p.x > width) {
         p.vx *= -1;
-        p.x = Math.max(0, Math.min(width, p.x));
+        p.x = clamp(p.x, 0, width);
       }
       if (p.y < 0 || p.y > height) {
         p.vy *= -1;
-        p.y = Math.max(0, Math.min(height, p.y));
+        p.y = clamp(p.y, 0, height);
       }
     }
   }
@@ -374,40 +456,31 @@ function integrate() {
 
 function drawParticle(p) {
   const species = SPECIES[p.type];
-  const r = 3.2 + p.mass * 1.8;
+  const r = 2.5 + p.mass * 1.4;
 
-  ctx.save();
-  ctx.translate(p.x, p.y);
   ctx.fillStyle = species.color;
-  ctx.shadowColor = species.color;
-  ctx.shadowBlur = 14;
-
   ctx.beginPath();
-  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.arc(p.x, p.y, r, 0, TAU);
   ctx.fill();
 
-  const heading = Math.atan2(p.vy, p.vx);
-  const streak = 8;
-  ctx.strokeStyle = species.color;
-  ctx.globalAlpha = 0.42;
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(-Math.cos(heading) * streak, -Math.sin(heading) * streak);
-  ctx.stroke();
-
-  ctx.restore();
+  const speed = Math.hypot(p.vx, p.vy);
+  if (speed > 0.05) {
+    const tail = 6;
+    const inv = tail / speed;
+    ctx.strokeStyle = species.color;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(p.x - p.vx * inv, p.y - p.vy * inv);
+    ctx.stroke();
+  }
 }
 
 function paint() {
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
 
-  if (!state.controls.trails) {
-    ctx.clearRect(0, 0, width, height);
-  }
-
-  ctx.fillStyle = state.controls.trails ? "rgba(3, 8, 18, 0.16)" : "rgba(3, 8, 18, 1)";
+  ctx.fillStyle = state.controls.trails ? "rgba(3, 8, 18, 0.55)" : "#030812";
   ctx.fillRect(0, 0, width, height);
 
   for (const p of state.particles) {
@@ -428,16 +501,23 @@ function computeStats() {
   const counts = byType.map((n, i) => `${SPECIES[i].name}: ${n}`).join(" | ");
 
   ui.stats.textContent =
-    `Avg speed ${averageSpeed.toFixed(2)} | Radius ${state.controls.radius} | ` +
-    `Chaos ${state.profile.chaos.toFixed(2)} | ${counts}`;
+    `Avg speed ${averageSpeed.toFixed(2)} | Active pairs ${state.metrics.activePairs} | ` +
+    `Checks ${state.metrics.pairChecks} | ${counts}`;
 }
 
-function frame() {
+function frame(now) {
+  if (!state.lastFrameTime) {
+    state.lastFrameTime = now;
+  }
+
+  const dt = clamp((now - state.lastFrameTime) / 16.6667, 0.65, 1.9);
+  state.lastFrameTime = now;
+
   if (!state.paused) {
-    applyForces();
-    applyChaosField();
-    integrate();
-    state.tick += 1;
+    applyForces(dt);
+    applyChaosField(dt);
+    integrate(dt);
+    state.tick += dt;
   }
 
   paint();
@@ -575,4 +655,4 @@ fitCanvas();
 setupControls();
 updateControlValues();
 applyGeneratedProfile();
-frame();
+requestAnimationFrame(frame);
